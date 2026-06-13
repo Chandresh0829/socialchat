@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SocialChat | Private Code-Based Chat</title>
+    <title>SocialChat | Secure Private Messenger</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Favicon - SocialChat Logo -->
+    <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%238b5cf6'/%3E%3Cstop offset='100%25' style='stop-color:%233b82f6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23grad)'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-weight='bold'%3ESC%3C/text%3E%3C/svg%3E">
     
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         
         const firebaseConfig = {
             apiKey: "AIzaSyAOvbLmJk51keGvAgsx9BofXzXpz7XS9ms",
@@ -41,13 +44,14 @@
         window.storageRef = storageRef;
         window.uploadBytes = uploadBytes;
         window.getDownloadURL = getDownloadURL;
+        window.deleteObject = deleteObject;
         
         console.log("✅ Firebase Connected!");
     </script>
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; overflow: hidden; }
         
         .glass {
             background: rgba(255, 255, 255, 0.03);
@@ -71,6 +75,12 @@
             background: rgba(40, 45, 60, 0.9);
             border-radius: 22px;
             border-bottom-left-radius: 6px;
+        }
+        
+        .msg-deleted {
+            background: rgba(80, 80, 100, 0.5);
+            border-radius: 22px;
+            font-style: italic;
         }
         
         .chat-scroll::-webkit-scrollbar { width: 5px; }
@@ -120,8 +130,30 @@
             border: 2px dashed #8b5cf6;
         }
         
-        .modal {
-            transition: all 0.3s ease;
+        .delete-btn {
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(239, 68, 68, 0.8);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .message-wrapper:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .delete-btn:hover {
+            background: #ef4444;
+            transform: translateY(-50%) scale(1.1);
         }
         
         input.code-input {
@@ -130,47 +162,139 @@
             text-align: center;
             font-weight: bold;
         }
+        
+        .sidebar-toggle {
+            position: fixed;
+            left: 280px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 60;
+            background: rgba(139, 92, 246, 0.8);
+            width: 32px;
+            height: 32px;
+            border-radius: 0 20px 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            background: rgba(139, 92, 246, 1);
+            width: 36px;
+        }
+        
+        .sidebar-collapsed .sidebar-toggle {
+            left: 0;
+        }
+        
+        .sidebar-collapsed .sidebar-main {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-main {
+            transition: transform 0.3s ease;
+            z-index: 50;
+        }
+        
+        .seen-tick {
+            color: #60a5fa;
+        }
+        
+        .delivered-tick {
+            color: rgba(255,255,255,0.4);
+        }
+        
+        .status-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .status-online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+        
+        .status-offline {
+            background: rgba(107, 114, 128, 0.2);
+            color: #9ca3af;
+        }
+        
+        /* Logo Animation */
+        @keyframes logoGlow {
+            0%, 100% { filter: drop-shadow(0 0 2px rgba(139, 92, 246, 0.5)); }
+            50% { filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.8)); }
+        }
+        
+        .logo-animation {
+            animation: logoGlow 2s infinite;
+        }
+        
+        /* App Title Gradient */
+        .app-title-gradient {
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
     </style>
 </head>
 <body>
 
-<div class="flex h-screen">
+<div class="flex h-screen" id="appContainer">
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-chevron-left text-white text-sm" id="toggleIcon"></i>
+    </div>
+    
     <!-- ==================== SIDEBAR ==================== -->
-    <div class="w-80 glass border-r border-white/10 flex flex-col">
-        <!-- User Profile -->
+    <div class="sidebar-main w-80 glass border-r border-white/10 flex flex-col fixed h-full z-50 bg-black/95" style="background: rgba(15,15,26,0.98);">
+        <!-- App Logo & Name -->
         <div class="p-5 border-b border-white/10">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center logo-animation">
+                    <i class="fas fa-comment-dots text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold app-title-gradient">SocialChat</h1>
+                    <p class="text-white/30 text-xs">Secure Messenger</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 mt-4 pt-3 border-t border-white/10">
                 <div class="relative">
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold text-lg">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold text-sm">
                         <i class="fas fa-user"></i>
                     </div>
-                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900 online-dot"></div>
+                    <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-gray-900 online-dot" id="myOnlineDot"></div>
                 </div>
                 <div class="flex-1">
-                    <h3 class="text-white font-semibold" id="userName">User_<span id="userIdDisplay">...</span></h3>
-                    <p class="text-white/40 text-xs">Online</p>
+                    <h3 class="text-white font-semibold text-sm" id="userName">User_<span id="userIdDisplay">...</span></h3>
+                    <p class="text-white/40 text-[10px]" id="myStatusText">Online</p>
                 </div>
                 <button id="editProfileBtn" class="text-white/40 hover:text-white/80">
-                    <i class="fas fa-edit text-sm"></i>
+                    <i class="fas fa-edit text-xs"></i>
                 </button>
             </div>
         </div>
         
-        <!-- Chat List -->
         <div class="flex-1 overflow-y-auto">
             <div class="px-3 py-4">
-                <!-- General Group Option -->
                 <div class="sidebar-item p-3 rounded-xl flex items-center gap-3 mb-2" data-chat="general" data-type="group">
                     <div class="w-10 h-10 rounded-full bg-blue-600/30 flex items-center justify-center">
-                        <i class="fas fa-users text-blue-400"></i>
+                        <i class="fas fa-globe text-blue-400"></i>
                     </div>
                     <div class="flex-1">
-                        <h5 class="text-white text-sm font-medium">🏠 General Group</h5>
+                        <h5 class="text-white text-sm font-medium">🌐 General Group</h5>
                         <p class="text-white/40 text-xs">Public group chat</p>
                     </div>
                 </div>
                 
-                <!-- Private Chat via Code Option -->
                 <div class="sidebar-item p-3 rounded-xl flex items-center gap-3 mb-2" id="privateChatOption">
                     <div class="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center">
                         <i class="fas fa-lock text-purple-400"></i>
@@ -182,57 +306,61 @@
                 </div>
                 
                 <div class="mt-4 pt-3 border-t border-white/10">
-                    <h4 class="text-white/40 text-xs uppercase tracking-wider mb-2 px-2">My Private Chats</h4>
-                    <div id="privateChatsList" class="space-y-1">
-                        <!-- Dynamic private chats will appear here -->
-                    </div>
+                    <h4 class="text-white/40 text-xs uppercase tracking-wider mb-2 px-2 flex items-center gap-2">
+                        <i class="fas fa-folder-open"></i> My Private Chats
+                    </h4>
+                    <div id="privateChatsList" class="space-y-1"></div>
                 </div>
             </div>
         </div>
         
-        <!-- Create New Private Chat Button -->
         <div class="p-4 border-t border-white/10">
-            <button id="createPrivateChatBtn" class="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl py-2 text-sm flex items-center justify-center gap-2 transition-all">
+            <button id="createPrivateChatBtn" class="w-full bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/50 hover:to-blue-600/50 text-purple-300 rounded-xl py-2.5 text-sm flex items-center justify-center gap-2 transition-all">
                 <i class="fas fa-plus-circle"></i> Create New Private Chat
             </button>
+        </div>
+        
+        <!-- App Version -->
+        <div class="p-3 text-center border-t border-white/10">
+            <p class="text-white/20 text-[10px]">SocialChat v2.0 | Secure P2P</p>
         </div>
     </div>
     
     <!-- ==================== MAIN CHAT AREA ==================== -->
-    <div class="flex-1 flex flex-col">
-        <!-- Chat Header -->
+    <div class="flex-1 flex flex-col ml-0 transition-all duration-300" id="mainContent" style="margin-left: 320px;">
         <div class="glass-header px-6 py-4 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                    <i class="fas fa-comment text-white text-sm"></i>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center logo-animation">
+                    <i class="fas fa-comment-dots text-white text-sm"></i>
                 </div>
                 <div>
                     <h2 class="text-white font-semibold" id="currentChatTitle">General Group</h2>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-2">
+                        <div id="participantStatus" class="flex items-center gap-1">
+                            <div class="w-2 h-2 rounded-full bg-gray-500" id="participantOnlineDot"></div>
+                            <span id="participantStatusText" class="text-white/40 text-xs">Group Chat</span>
+                        </div>
                         <div id="typingStatusIndicator" class="hidden">
-                            <span class="text-white/40 text-xs">typing</span>
+                            <span class="text-white/40 text-xs ml-2">typing</span>
                             <div class="typing-dot"></div>
                             <div class="typing-dot"></div>
                             <div class="typing-dot"></div>
                         </div>
-                        <span id="chatStatus" class="text-white/40 text-xs">Click to start chatting</span>
                     </div>
                 </div>
             </div>
             <div class="flex gap-2">
-                <button id="clearChatBtn" class="text-white/40 hover:text-red-400 transition-all">
+                <button id="clearChatBtn" class="text-white/40 hover:text-red-400 transition-all" title="Clear Chat">
                     <i class="fas fa-trash-alt"></i>
                 </button>
-                <button id="showCodeBtn" class="text-purple-400 hover:text-purple-300 transition-all hidden">
+                <button id="showCodeBtn" class="text-purple-400 hover:text-purple-300 transition-all hidden" title="Show Code">
                     <i class="fas fa-key"></i>
                 </button>
             </div>
         </div>
         
-        <!-- Messages Container -->
         <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-3 chat-scroll"></div>
         
-        <!-- Typing Indicator -->
         <div id="globalTypingIndicator" class="px-6 pb-2 hidden">
             <div class="flex items-center gap-2">
                 <span class="text-white/40 text-xs">Someone is typing</span>
@@ -242,24 +370,22 @@
             </div>
         </div>
         
-        <!-- Message Input -->
         <div class="p-4 border-t border-white/10 bg-black/20">
             <div class="flex gap-2">
-                <button id="emojiBtn" class="bg-white/10 hover:bg-white/20 w-11 h-11 rounded-xl transition-all">
+                <button id="emojiBtn" class="bg-white/10 hover:bg-white/20 w-11 h-11 rounded-xl transition-all" title="Emoji">
                     <i class="far fa-smile-wink text-white/80"></i>
                 </button>
                 <input type="text" id="messageInput" placeholder="Type a message..." 
                        class="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-white text-sm border border-white/10 focus:border-purple-500">
-                <button id="attachBtn" class="bg-white/10 hover:bg-white/20 w-11 h-11 rounded-xl transition-all">
+                <button id="attachBtn" class="bg-white/10 hover:bg-white/20 w-11 h-11 rounded-xl transition-all" title="Attach File">
                     <i class="fas fa-paperclip text-white/80"></i>
                 </button>
-                <button id="sendMsgBtn" class="bg-purple-600 hover:bg-purple-500 w-11 h-11 rounded-xl transition-all">
+                <button id="sendMsgBtn" class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 w-11 h-11 rounded-xl transition-all" title="Send">
                     <i class="fas fa-paper-plane text-white"></i>
                 </button>
             </div>
             <input type="file" id="fileInput" class="hidden">
             
-            <!-- Emoji Picker -->
             <div id="emojiPicker" class="hidden glass absolute bottom-24 left-80 p-3 rounded-xl w-64 z-50">
                 <div class="grid grid-cols-8 gap-2">
                     <span class="emoji text-2xl cursor-pointer hover:scale-125 transition-all">😀</span>
@@ -284,15 +410,20 @@
     </div>
 </div>
 
-<!-- Create Private Chat Modal -->
+<!-- Modals (same as before) -->
 <div id="createPrivateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
     <div class="glass rounded-2xl p-6 w-96">
-        <h3 class="text-white font-semibold mb-4">Create Private Chat</h3>
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <i class="fas fa-lock text-white text-xs"></i>
+            </div>
+            <h3 class="text-white font-semibold">Create Private Chat</h3>
+        </div>
         <p class="text-white/60 text-sm mb-3">Share this 6-digit code with your friend:</p>
         <div class="code-box rounded-xl p-4 text-center mb-4">
             <div class="text-4xl font-bold text-purple-400 tracking-widest" id="generatedCode">------</div>
         </div>
-        <button id="copyCodeBtn" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded-xl text-white mb-3">
+        <button id="copyCodeBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 py-2 rounded-xl text-white mb-3">
             <i class="fas fa-copy mr-2"></i> Copy Code
         </button>
         <button id="joinCreatedChatBtn" class="w-full bg-emerald-600/40 hover:bg-emerald-600/60 py-2 rounded-xl text-white">
@@ -304,14 +435,18 @@
     </div>
 </div>
 
-<!-- Join Private Chat Modal -->
 <div id="joinPrivateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
     <div class="glass rounded-2xl p-6 w-96">
-        <h3 class="text-white font-semibold mb-4">Join Private Chat</h3>
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <i class="fas fa-sign-in-alt text-white text-xs"></i>
+            </div>
+            <h3 class="text-white font-semibold">Join Private Chat</h3>
+        </div>
         <p class="text-white/60 text-sm mb-3">Enter 6-digit code:</p>
         <input type="text" id="joinCodeInput" maxlength="6" placeholder="------" 
                class="code-input w-full bg-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest border border-white/20 focus:border-purple-500 mb-4">
-        <button id="joinChatBtn" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded-xl text-white mb-2">
+        <button id="joinChatBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 py-2 rounded-xl text-white mb-2">
             <i class="fas fa-sign-in-alt mr-2"></i> Join Chat
         </button>
         <button id="closeJoinModal" class="w-full bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white/80">
@@ -320,21 +455,25 @@
     </div>
 </div>
 
-<!-- Edit Profile Modal -->
 <div id="profileModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
     <div class="glass rounded-2xl p-6 w-96">
-        <h3 class="text-white font-semibold mb-4">Edit Profile</h3>
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <i class="fas fa-user-edit text-white text-xs"></i>
+            </div>
+            <h3 class="text-white font-semibold">Edit Profile</h3>
+        </div>
         <input type="text" id="editName" placeholder="Enter your name" class="w-full bg-white/10 rounded-xl px-4 py-2 text-white mb-4">
         <div class="flex gap-2">
-            <button id="saveProfile" class="flex-1 bg-purple-600 py-2 rounded-xl text-white">Save</button>
-            <button id="closeProfile" class="flex-1 bg-white/10 py-2 rounded-xl text-white">Cancel</button>
+            <button id="saveProfile" class="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 py-2 rounded-xl text-white">Save</button>
+            <button id="closeProfile" class="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white">Cancel</button>
         </div>
     </div>
 </div>
 
 <script type="module">
     import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
     
     const db = getDatabase();
     const storage = getStorage();
@@ -350,16 +489,16 @@
     let currentChatCode = null;
     let typingTimeout = null;
     let currentMessagesRef = null;
+    let messageRefs = new Map();
+    let sidebarCollapsed = false;
+    let currentParticipantId = null;
     
-    // Save user info
     localStorage.setItem('userId', currentUser.id);
     localStorage.setItem('userName', currentUser.name);
     
-    // Display user info
     document.getElementById('userIdDisplay').textContent = currentUser.id.slice(-6);
     document.getElementById('userName').textContent = currentUser.name;
     
-    // Update user online status
     const userStatusRef = ref(db, `users/${currentUser.id}`);
     set(userStatusRef, { name: currentUser.name, online: true, lastSeen: new Date().toISOString() });
     
@@ -367,39 +506,157 @@
         set(userStatusRef, { online: false, lastSeen: new Date().toISOString() });
     });
     
-    // Generate 6-digit code
+    setInterval(async () => {
+        await set(userStatusRef, { name: currentUser.name, online: true, lastSeen: new Date().toISOString() });
+    }, 30000);
+    
+    function getParticipantStatus(participantId) {
+        if (!participantId) return;
+        
+        const participantRef = ref(db, `users/${participantId}`);
+        onValue(participantRef, (snapshot) => {
+            const data = snapshot.val();
+            const onlineDot = document.getElementById('participantOnlineDot');
+            const statusText = document.getElementById('participantStatusText');
+            
+            if (data && data.online === true) {
+                onlineDot.className = 'w-2 h-2 rounded-full bg-emerald-500 online-dot';
+                statusText.innerHTML = '<span class="text-emerald-400 text-xs">● Online</span>';
+            } else {
+                onlineDot.className = 'w-2 h-2 rounded-full bg-gray-500';
+                if (data && data.lastSeen) {
+                    const lastSeen = new Date(data.lastSeen);
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - lastSeen) / 60000);
+                    if (diffMinutes < 60) {
+                        statusText.innerHTML = `<span class="text-gray-400 text-xs">Last seen ${diffMinutes} min ago</span>`;
+                    } else {
+                        statusText.innerHTML = `<span class="text-gray-400 text-xs">Last seen at ${lastSeen.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>`;
+                    }
+                } else {
+                    statusText.innerHTML = '<span class="text-gray-400 text-xs">● Offline</span>';
+                }
+            }
+        });
+    }
+    
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    async function markMessageAsRead(messageKey, senderId) {
+        if (senderId === currentUser.id) return;
+        
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}/messages`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}/messages`;
+        }
+        
+        const messageRef = ref(db, `${chatPath}/${messageKey}`);
+        await update(messageRef, { read: true, readAt: Date.now(), readBy: currentUser.id });
+    }
+    
     function generate6DigitCode() {
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
     
-    // Add message to UI
-    function addMessageToUI(message, isSent, fileUrl = null, fileName = null) {
-        const messagesDiv = document.getElementById('messagesContainer');
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `flex ${isSent ? 'justify-end' : 'justify-start'} message-anim`;
-        
-        let content = '';
-        if (fileUrl && fileName) {
-            if (fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-                content = `<img src="${fileUrl}" class="max-w-[200px] max-h-40 rounded-lg mb-2 cursor-pointer" onclick="window.open('${fileUrl}')">`;
+    async function deleteMessageForEveryone(messageId, messageKey, fileUrl = null) {
+        if (confirm('Delete this message for everyone?')) {
+            let chatPath;
+            if (currentChatType === 'group') {
+                chatPath = `chats/${currentChat}/messages`;
             } else {
-                content = `<a href="${fileUrl}" download class="text-blue-300 underline text-sm flex items-center gap-1"><i class="fas fa-download"></i> ${escapeHtml(fileName)}</a><br>`;
+                chatPath = `privateChats/${currentChatCode}/messages`;
+            }
+            
+            const messageRef = ref(db, `${chatPath}/${messageKey}`);
+            await update(messageRef, {
+                deleted: true,
+                deletedBy: currentUser.id,
+                deletedAt: Date.now(),
+                text: "This message was deleted",
+                fileUrl: null,
+                fileName: null
+            });
+            
+            if (fileUrl) {
+                try {
+                    const fileRef = storageRef(storage, fileUrl);
+                    await deleteObject(fileRef);
+                } catch(e) { console.log('File delete error:', e); }
             }
         }
-        content += `<div class="break-words text-sm">${escapeHtml(message.text || '')}</div>`;
+    }
+    
+    function addMessageToUI(message, isSent, messageId, messageKey, fileUrl = null, fileName = null) {
+        const messagesDiv = document.getElementById('messagesContainer');
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${isSent ? 'justify-end' : 'justify-start'} message-anim message-wrapper`;
+        wrapper.setAttribute('data-message-key', messageKey);
+        wrapper.setAttribute('data-message-id', messageId);
         
-        msgDiv.innerHTML = `
-            <div class="${isSent ? 'msg-sent' : 'msg-received'} px-3 py-2 max-w-[70%] text-white">
-                ${content}
-                <div class="flex items-center justify-end gap-1 mt-1">
-                    <span class="text-[9px] text-white/40">${new Date(message.timestamp || Date.now()).toLocaleTimeString()}</span>
-                    ${isSent ? '<i class="fas fa-check-double text-[8px] text-white/40"></i>' : ''}
-                </div>
-            </div>
-        `;
+        let content = '';
+        const isDeleted = message.deleted === true;
         
-        messagesDiv.appendChild(msgDiv);
+        if (isDeleted) {
+            content = `<div class="msg-deleted px-3 py-2 text-white/50 text-sm italic">
+                        <i class="fas fa-trash-alt mr-1"></i> This message was deleted
+                        <div class="text-[8px] text-white/30 mt-1">${formatTime(message.timestamp || Date.now())}</div>
+                       </div>`;
+        } else {
+            if (fileUrl && fileName) {
+                if (fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                    content = `<img src="${fileUrl}" class="max-w-[200px] max-h-40 rounded-lg mb-2 cursor-pointer" onclick="window.open('${fileUrl}')">`;
+                } else {
+                    content = `<a href="${fileUrl}" download class="text-blue-300 underline text-sm flex items-center gap-1"><i class="fas fa-download"></i> ${escapeHtml(fileName)}</a><br>`;
+                }
+            }
+            content += `<div class="break-words text-sm">${escapeHtml(message.text || '')}</div>`;
+            
+            let readStatusHtml = '';
+            if (isSent) {
+                if (message.read === true) {
+                    readStatusHtml = '<i class="fas fa-check-double text-[10px] text-blue-400 seen-tick"></i>';
+                } else {
+                    readStatusHtml = '<i class="fas fa-check-double text-[10px] text-white/40 delivered-tick"></i>';
+                }
+            }
+            
+            content = `<div class="${isSent ? 'msg-sent' : 'msg-received'} px-3 py-2 max-w-[70%] text-white">
+                        ${content}
+                        <div class="flex items-center justify-end gap-1 mt-1">
+                            <span class="text-[9px] text-white/40">${formatTime(message.timestamp || Date.now())}</span>
+                            ${readStatusHtml}
+                        </div>
+                       </div>`;
+        }
+        
+        wrapper.innerHTML = content;
+        
+        if (isSent && !isDeleted && message.timestamp > Date.now() - 86400000) {
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash-alt text-white text-xs"></i>';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteMessageForEveryone(messageId, messageKey, fileUrl);
+            };
+            wrapper.appendChild(deleteBtn);
+        }
+        
+        messagesDiv.appendChild(wrapper);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        if (!isSent && !message.read) {
+            setTimeout(() => {
+                markMessageAsRead(messageKey, message.senderId);
+            }, 1000);
+        }
+        
+        return wrapper;
     }
     
     function escapeHtml(str) {
@@ -409,7 +666,6 @@
         return div.innerHTML;
     }
     
-    // Load messages for current chat
     function loadMessages(chatId, chatType, code = null) {
         const messagesDiv = document.getElementById('messagesContainer');
         messagesDiv.innerHTML = '<div class="text-center text-white/40 text-sm py-10">Loading messages...</div>';
@@ -421,15 +677,17 @@
         currentMessagesRef = messagesRef;
         
         messagesDiv.innerHTML = '';
+        messageRefs.clear();
         
         onChildAdded(messagesRef, (snapshot) => {
             const message = snapshot.val();
+            const messageKey = snapshot.key;
             const isSent = message.senderId === currentUser.id;
-            addMessageToUI(message, isSent, message.fileUrl, message.fileName);
+            messageRefs.set(messageKey, message);
+            addMessageToUI(message, isSent, message.id, messageKey, message.fileUrl, message.fileName);
         });
     }
     
-    // Send message
     async function sendMessage() {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
@@ -449,18 +707,17 @@
             senderId: currentUser.id,
             senderName: currentUser.name,
             timestamp: Date.now(),
-            read: false
+            read: false,
+            deleted: false
         };
         
         await push(messagesRef, newMessage);
         input.value = '';
         
-        // Update typing status
         const typingRef = ref(db, `${chatPath.replace('/messages', '')}/typing/${currentUser.id}`);
         await remove(typingRef);
     }
     
-    // Send file
     async function sendFile(file) {
         let chatPath;
         if (currentChatType === 'group') {
@@ -469,8 +726,8 @@
             chatPath = `privateChats/${currentChatCode}`;
         }
         
-        const fileRef = storageRef(storage, `${chatPath}/files/${Date.now()}_${file.name}`);
-        const uploadResult = await uploadBytes(fileRef, file);
+        const fileStorageRef = storageRef(storage, `${chatPath}/files/${Date.now()}_${file.name}`);
+        const uploadResult = await uploadBytes(fileStorageRef, file);
         const fileUrl = await getDownloadURL(uploadResult.ref);
         
         const messagesRef = ref(db, `${chatPath}/messages`);
@@ -482,13 +739,13 @@
             senderId: currentUser.id,
             senderName: currentUser.name,
             timestamp: Date.now(),
-            read: false
+            read: false,
+            deleted: false
         };
         
         await push(messagesRef, newMessage);
     }
     
-    // Handle typing
     function handleTyping() {
         let chatPath;
         if (currentChatType === 'group') {
@@ -506,7 +763,6 @@
         }, 1500);
     }
     
-    // Listen for typing
     function listenForTyping() {
         let chatPath;
         if (currentChatType === 'group') {
@@ -532,9 +788,8 @@
         });
     }
     
-    // Clear chat
     async function clearChat() {
-        if (confirm('Are you sure you want to clear all messages?')) {
+        if (confirm('Are you sure you want to clear all messages? (This cannot be undone)')) {
             let chatPath;
             if (currentChatType === 'group') {
                 chatPath = `chats/${currentChat}/messages`;
@@ -547,7 +802,6 @@
         }
     }
     
-    // Create new private chat
     async function createPrivateChat() {
         const code = generate6DigitCode();
         const chatRef = ref(db, `privateChats/${code}`);
@@ -570,44 +824,48 @@
         window.tempCreatedCode = code;
     }
     
-    // Join private chat
     async function joinPrivateChat(code) {
         const chatRef = ref(db, `privateChats/${code}`);
         const snapshot = await get(chatRef);
         
         if (snapshot.exists()) {
-            // Add user as participant if not already
             const chatData = snapshot.val();
             if (!chatData.participants.includes(currentUser.id)) {
                 chatData.participants.push(currentUser.id);
                 await set(chatRef, chatData);
             }
             
-            // Add to user's private chats list
             const userPrivateRef = ref(db, `users/${currentUser.id}/privateChats/${code}`);
             await set(userPrivateRef, { code: code, name: chatData.name, joinedAt: Date.now() });
             
-            // Load the chat
             currentChatType = 'private';
             currentChatCode = code;
             currentChat = null;
+            
+            const otherParticipant = chatData.participants.find(p => p !== currentUser.id);
+            currentParticipantId = otherParticipant || null;
+            
             document.getElementById('currentChatTitle').textContent = `🔒 Private Chat ${code}`;
             document.getElementById('showCodeBtn').classList.remove('hidden');
+            
+            if (currentParticipantId) {
+                getParticipantStatus(currentParticipantId);
+            } else {
+                document.getElementById('participantStatusText').innerHTML = '<span class="text-gray-400 text-xs">Waiting for others...</span>';
+            }
+            
             loadMessages(null, 'private', code);
             listenForTyping();
             
-            // Close modal
             document.getElementById('joinPrivateModal').style.display = 'none';
             document.getElementById('joinPrivateModal').classList.add('hidden');
             
-            // Refresh private chats list
             loadPrivateChats();
         } else {
             alert('Invalid code! Please check and try again.');
         }
     }
     
-    // Load private chats list for current user
     function loadPrivateChats() {
         const privateChatsRef = ref(db, `users/${currentUser.id}/privateChats`);
         onValue(privateChatsRef, (snapshot) => {
@@ -617,7 +875,6 @@
             
             if (chats) {
                 Object.keys(chats).forEach(code => {
-                    const chat = chats[code];
                     const div = document.createElement('div');
                     div.className = 'sidebar-item p-3 rounded-xl flex items-center gap-3';
                     div.setAttribute('data-code', code);
@@ -630,10 +887,22 @@
                             <p class="text-white/40 text-xs">Private chat</p>
                         </div>
                     `;
-                    div.addEventListener('click', () => {
+                    div.addEventListener('click', async () => {
                         currentChatType = 'private';
                         currentChatCode = code;
                         currentChat = null;
+                        
+                        const chatRef = ref(db, `privateChats/${code}`);
+                        const chatSnapshot = await get(chatRef);
+                        if (chatSnapshot.exists()) {
+                            const chatData = chatSnapshot.val();
+                            const otherParticipant = chatData.participants.find(p => p !== currentUser.id);
+                            currentParticipantId = otherParticipant || null;
+                            if (currentParticipantId) {
+                                getParticipantStatus(currentParticipantId);
+                            }
+                        }
+                        
                         document.getElementById('currentChatTitle').textContent = `🔒 Private Chat ${code}`;
                         document.getElementById('showCodeBtn').classList.remove('hidden');
                         loadMessages(null, 'private', code);
@@ -645,16 +914,39 @@
         });
     }
     
-    // Initialize general chat
     async function initGeneralChat() {
         const chatRef = ref(db, `chats/general`);
         const snapshot = await get(chatRef);
         if (!snapshot.exists()) {
             await set(chatRef, { name: 'General Group', type: 'public', createdAt: Date.now() });
         }
+        document.getElementById('participantStatusText').innerHTML = '<span class="text-white/40 text-xs">Group Chat</span>';
+        document.getElementById('participantOnlineDot').className = 'w-2 h-2 rounded-full bg-gray-500';
+    }
+    
+    function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        const sidebar = document.querySelector('.sidebar-main');
+        const mainContent = document.getElementById('mainContent');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (sidebarCollapsed) {
+            sidebar.style.transform = 'translateX(-100%)';
+            mainContent.style.marginLeft = '0';
+            toggleIcon.classList.remove('fa-chevron-left');
+            toggleIcon.classList.add('fa-chevron-right');
+            document.querySelector('.sidebar-toggle').style.left = '0';
+        } else {
+            sidebar.style.transform = 'translateX(0)';
+            mainContent.style.marginLeft = '320px';
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-left');
+            document.querySelector('.sidebar-toggle').style.left = '280px';
+        }
     }
     
     // Event Listeners
+    document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
     document.getElementById('sendMsgBtn').addEventListener('click', sendMessage);
     document.getElementById('messageInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -676,7 +968,6 @@
     });
     
     document.getElementById('clearChatBtn').addEventListener('click', clearChat);
-    
     document.getElementById('createPrivateChatBtn').addEventListener('click', createPrivateChat);
     
     document.getElementById('privateChatOption').addEventListener('click', () => {
@@ -730,7 +1021,6 @@
         }
     });
     
-    // Edit Profile
     document.getElementById('editProfileBtn').addEventListener('click', () => {
         document.getElementById('editName').value = currentUser.name;
         document.getElementById('profileModal').classList.remove('hidden');
@@ -754,7 +1044,6 @@
         document.getElementById('profileModal').classList.add('hidden');
     });
     
-    // Emoji Picker
     const emojiBtn = document.getElementById('emojiBtn');
     const emojiPicker = document.getElementById('emojiPicker');
     emojiBtn.addEventListener('click', () => {
@@ -770,26 +1059,23 @@
         });
     });
     
-    // General group click
     document.querySelector('[data-chat="general"]').addEventListener('click', () => {
         currentChatType = 'group';
         currentChat = 'general';
         currentChatCode = null;
-        document.getElementById('currentChatTitle').textContent = '🏠 General Group';
+        currentParticipantId = null;
+        document.getElementById('currentChatTitle').textContent = '🌐 General Group';
         document.getElementById('showCodeBtn').classList.add('hidden');
+        document.getElementById('participantStatusText').innerHTML = '<span class="text-white/40 text-xs">Group Chat</span>';
+        document.getElementById('participantOnlineDot').className = 'w-2 h-2 rounded-full bg-gray-500';
         loadMessages('general', 'group');
         listenForTyping();
     });
     
-    // Initialize
     initGeneralChat();
     loadPrivateChats();
     
-    setInterval(async () => {
-        await set(userStatusRef, { name: currentUser.name, online: true, lastSeen: new Date().toISOString() });
-    }, 30000);
-    
-    console.log('✅ SocialChat Initialized!');
+    console.log('✅ SocialChat with Logo and Name initialized!');
 </script>
 </body>
 </html>

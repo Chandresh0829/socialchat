@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SocialChat | Secure Private Messenger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%238b5cf6'/%3E%3Cstop offset='100%25' style='stop-color:%233b82f6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23grad)'/%3E%3Ctext x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-weight='bold'%3ESC%3C/text%3E%3C/svg%3E">
+    
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set, get, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyAOvbLmJk51keGvAgsx9BofXzXpz7XS9ms",
+            authDomain: "daily-cash-and-earning-app.firebaseapp.com",
+            databaseURL: "https://daily-cash-and-earning-app.firebaseio.com",
+            projectId: "daily-cash-and-earning-app",
+            storageBucket: "daily-cash-and-earning-app.firebasestorage.app",
+            messagingSenderId: "297468822284",
+            appId: "1:297468822284:web:de720faba6440ba5927f29"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const storage = getStorage(app);
+        
+        window.db = db;
+        window.storage = storage;
+        window.ref = ref;
+        window.push = push;
+        window.onChildAdded = onChildAdded;
+        window.onValue = onValue;
+        window.update = update;
+        window.remove = remove;
+        window.set = set;
+        window.get = get;
+        window.onDisconnect = onDisconnect;
+        window.storageRef = storageRef;
+        window.uploadBytes = uploadBytes;
+        window.getDownloadURL = getDownloadURL;
+        window.deleteObject = deleteObject;
+        
+        console.log("✅ Firebase Connected!");
+    </script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; overflow: hidden; }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .glass-header {
+            background: rgba(20, 25, 40, 0.8);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .msg-sent {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 22px;
+            border-bottom-right-radius: 6px;
+        }
+        
+        .msg-received {
+            background: rgba(40, 45, 60, 0.9);
+            border-radius: 22px;
+            border-bottom-left-radius: 6px;
+        }
+        
+        .msg-deleted {
+            background: rgba(80, 80, 100, 0.5);
+            border-radius: 22px;
+            font-style: italic;
+        }
+        
+        .chat-scroll::-webkit-scrollbar { width: 5px; }
+        .chat-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 10px; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-anim { animation: fadeIn 0.25s ease-out; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        .online-dot { animation: pulse 1.5s infinite; }
+        
+        .typing-dot {
+            width: 6px; height: 6px;
+            background: #a78bfa;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: typingWave 1.2s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typingWave {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+        
+        .btn-hover:active { transform: scale(0.95); }
+        input:focus, textarea:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
+        
+        .sidebar-item {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .sidebar-item:hover { background: rgba(139, 92, 246, 0.1); }
+        .sidebar-item.active { background: rgba(139, 92, 246, 0.2); border-left: 3px solid #8b5cf6; }
+        
+        .code-box {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
+            border: 2px dashed #8b5cf6;
+        }
+        
+        .delete-btn {
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(239, 68, 68, 0.8);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .message-wrapper:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .delete-btn:hover {
+            background: #ef4444;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        input.code-input {
+            font-size: 2rem;
+            letter-spacing: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .sidebar-toggle {
+            position: fixed;
+            left: 280px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 60;
+            background: rgba(139, 92, 246, 0.8);
+            width: 32px;
+            height: 32px;
+            border-radius: 0 20px 20px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            background: rgba(139, 92, 246, 1);
+            width: 36px;
+        }
+        
+        .sidebar-collapsed .sidebar-toggle {
+            left: 0;
+        }
+        
+        .sidebar-collapsed .sidebar-main {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-main {
+            transition: transform 0.3s ease;
+            z-index: 50;
+        }
+        
+        .seen-tick {
+            color: #60a5fa;
+        }
+        
+        .delivered-tick {
+            color: rgba(255,255,255,0.4);
+        }
+        
+        @keyframes logoGlow {
+            0%, 100% { filter: drop-shadow(0 0 2px rgba(139, 92, 246, 0.5)); }
+            50% { filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.8)); }
+        }
+        
+        .logo-animation {
+            animation: logoGlow 2s infinite;
+        }
+        
+        .app-title-gradient {
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .offline-text {
+            color: #9ca3af;
+        }
+        
+        .online-text {
+            color: #10b981;
+        }
+    </style>
+</head>
+<body>
+
+<div class="flex h-screen" id="appContainer">
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-chevron-left text-white text-sm" id="toggleIcon"></i>
+    </div>
+    
+    <!-- ==================== SIDEBAR ==================== -->
+    <div class="sidebar-main w-80 glass border-r border-white/10 flex flex-col fixed h-full z-50 bg-black/95" style="background: rgba(15,15,26,0.98);">
+        <!-- App Logo & Name -->
+        <div class="p-5 border-b border-white/10">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center logo-animation">
+                    <i class="fas fa-comment-dots text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold app-title-gradient">SocialChat</h1>
+                    <p class="text-white/30 text-xs">Secure Messenger</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3 mt-4 pt-3 border-t border-white/10">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold text-sm">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-gray-900 online-dot" id="myOnlineDot"></div>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-white font-semibold text-sm" id="userName">User_<span id="userIdDisplay">...</span></h3>
+                    <p class="text-white/40 text-[10px] flex items-center gap-1" id="myStatusText">
+                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block"></span> Online
+                    </p>
+                </div>
+                <button id="editProfileBtn" class="text-white/40 hover:text-white/80">
+                    <i class="fas fa-edit text-xs"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto">
+            <div class="px-3 py-4">
+                <div class="sidebar-item p-3 rounded-xl flex items-center gap-3 mb-2" data-chat="general" data-type="group">
+                    <div class="w-10 h-10 rounded-full bg-blue-600/30 flex items-center justify-center">
+                        <i class="fas fa-globe text-blue-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="text-white text-sm font-medium">🌐 General Group</h5>
+                        <p class="text-white/40 text-xs">Public group chat</p>
+                    </div>
+                </div>
+                
+                <div class="sidebar-item p-3 rounded-xl flex items-center gap-3 mb-2" id="privateChatOption">
+                    <div class="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center">
+                        <i class="fas fa-lock text-purple-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="text-white text-sm font-medium">🔒 Private Chat</h5>
+                        <p class="text-white/40 text-xs">Join with 6-digit code</p>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-3 border-t border-white/10">
+                    <h4 class="text-white/40 text-xs uppercase tracking-wider mb-2 px-2 flex items-center gap-2">
+                        <i class="fas fa-folder-open"></i> My Private Chats
+                    </h4>
+                    <div id="privateChatsList" class="space-y-1"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-white/10">
+            <button id="createPrivateChatBtn" class="w-full bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/50 hover:to-blue-600/50 text-purple-300 rounded-xl py-2.5 text-sm flex items-center justify-center gap-2 transition-all">
+                <i class="fas fa-plus-circle"></i> Create New Private Chat
+            </button>
+        </div>
+        
+        <div class="p-3 text-center border-t border-white/10">
+            <p class="text-white/20 text-[10px]">SocialChat v2.0 | Secure P2P</p>
+        </div>
+    </div>
+    
+    <!-- ==================== MAIN CHAT AREA ==================== -->
+    <div class="flex-1 flex flex-col ml-0 transition-all duration-300" id="mainContent" style="margin-left: 320px;">
+        <div class="glass-header px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center logo-animation">
+                    <i class="fas fa-comment-dots text-white text-sm"></i>
+                </div>
+                <div>
+                    <h2 class="text-white font-semibold" id="currentChatTitle">General Group</h2>
+                    <div class="flex items-center gap-2">
+                        <div id="participantStatus" class="flex items-center gap-1.5">
+                            <div class="w-2 h-2 rounded-full bg-gray-500" id="participantOnlineDot"></div>
+                            <span id="participantStatusText" class="text-white/40 text-xs">Group Chat</span>
+                        </div>
+                        <div id="typingStatusIndicator" class="hidden">
+                            <span class="text-white/40 text-xs ml-2">typing</span>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button id="clearChatBtn" class="text-white/40 hover:text-red-400 transition-all" title="Clear Chat">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <button id="showCodeBtn" class="text-purple-400 hover:text-purple-300 transition-all hidden" title="Show Code">
+                    <i class="fas fa-key"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-3 chat-scroll"></div>
+        
+        <div id="globalTypingIndicator" class="px-6 pb-2 hidden">
+            <div class="flex items-center gap-2">
+                <span class="text-white/40 text-xs">Someone is typing</span>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-white/10 bg-black/20">
+            <div class="flex gap-2">
+                <button id="emojiBtn" class="bg-white/10 hover:bg-white/20 w-11 h-11 rounded-xl transition-all" title="Emoji">
+                    <i class="far fa-smile-wink text-white/80"></i>
+                </button>
+                <input type="text" id="messageInput" placeholder="Type a message..." 
+                       class="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-white text-sm border border-white/10 focus:border-purple-500">
+                <button id="attachBtn" class="bg-white/10 hover:bg-white/20 w-11 h-11 rounded-xl transition-all" title="Attach File">
+                    <i class="fas fa-paperclip text-white/80"></i>
+                </button>
+                <button id="sendMsgBtn" class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 w-11 h-11 rounded-xl transition-all" title="Send">
+                    <i class="fas fa-paper-plane text-white"></i>
+                </button>
+            </div>
+            <input type="file" id="fileInput" class="hidden">
+            
+            <div id="emojiPicker" class="hidden glass absolute bottom-24 left-80 p-3 rounded-xl w-64 z-50">
+                <div class="grid grid-cols-8 gap-2">
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125 transition-all">😀</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">😂</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">❤️</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">😍</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">🎉</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">👍</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">🔥</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">💯</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">🤣</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">😎</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">🥰</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">😘</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">🥺</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">😭</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">😱</span>
+                    <span class="emoji text-2xl cursor-pointer hover:scale-125">🙏</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<div id="createPrivateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
+    <div class="glass rounded-2xl p-6 w-96">
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <i class="fas fa-lock text-white text-xs"></i>
+            </div>
+            <h3 class="text-white font-semibold">Create Private Chat</h3>
+        </div>
+        <p class="text-white/60 text-sm mb-3">Share this 6-digit code with your friend:</p>
+        <div class="code-box rounded-xl p-4 text-center mb-4">
+            <div class="text-4xl font-bold text-purple-400 tracking-widest" id="generatedCode">------</div>
+        </div>
+        <button id="copyCodeBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 py-2 rounded-xl text-white mb-3">
+            <i class="fas fa-copy mr-2"></i> Copy Code
+        </button>
+        <button id="joinCreatedChatBtn" class="w-full bg-emerald-600/40 hover:bg-emerald-600/60 py-2 rounded-xl text-white">
+            <i class="fas fa-door-open mr-2"></i> Join This Chat
+        </button>
+        <button id="closeCreateModal" class="w-full mt-2 bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white/80">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<div id="joinPrivateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
+    <div class="glass rounded-2xl p-6 w-96">
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <i class="fas fa-sign-in-alt text-white text-xs"></i>
+            </div>
+            <h3 class="text-white font-semibold">Join Private Chat</h3>
+        </div>
+        <p class="text-white/60 text-sm mb-3">Enter 6-digit code:</p>
+        <input type="text" id="joinCodeInput" maxlength="6" placeholder="------" 
+               class="code-input w-full bg-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest border border-white/20 focus:border-purple-500 mb-4">
+        <button id="joinChatBtn" class="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 py-2 rounded-xl text-white mb-2">
+            <i class="fas fa-sign-in-alt mr-2"></i> Join Chat
+        </button>
+        <button id="closeJoinModal" class="w-full bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white/80">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<div id="profileModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
+    <div class="glass rounded-2xl p-6 w-96">
+        <div class="flex items-center gap-2 mb-4">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                <i class="fas fa-user-edit text-white text-xs"></i>
+            </div>
+            <h3 class="text-white font-semibold">Edit Profile</h3>
+        </div>
+        <input type="text" id="editName" placeholder="Enter your name" class="w-full bg-white/10 rounded-xl px-4 py-2 text-white mb-4">
+        <div class="flex gap-2">
+            <button id="saveProfile" class="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 py-2 rounded-xl text-white">Save</button>
+            <button id="closeProfile" class="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set, get, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+    
+    const db = getDatabase();
+    const storage = getStorage();
+    
+    // App State
+    let currentUser = {
+        id: localStorage.getItem('userId') || 'user_' + Math.random().toString(36).substr(2, 8),
+        name: localStorage.getItem('userName') || 'Anonymous_' + Math.random().toString(36).substr(2, 4),
+        online: true
+    };
+    let currentChat = 'general';
+    let currentChatType = 'group';
+    let currentChatCode = null;
+    let typingTimeout = null;
+    let currentMessagesRef = null;
+    let messageRefs = new Map();
+    let sidebarCollapsed = false;
+    let currentParticipantId = null;
+    let statusListenerActive = false;
+    
+    localStorage.setItem('userId', currentUser.id);
+    localStorage.setItem('userName', currentUser.name);
+    
+    document.getElementById('userIdDisplay').textContent = currentUser.id.slice(-6);
+    document.getElementById('userName').textContent = currentUser.name;
+    
+    // Setup user status with disconnect handler
+    function setupUserStatus() {
+        const userStatusRef = ref(db, `users/${currentUser.id}`);
+        const userStatusData = {
+            name: currentUser.name,
+            online: true,
+            lastSeen: new Date().toISOString()
+        };
+        
+        // Set current status
+        set(userStatusRef, userStatusData);
+        
+        // Set up disconnect handler - automatically sets offline when user closes browser
+        const disconnectRef = onDisconnect(userStatusRef);
+        disconnectRef.set({
+            name: currentUser.name,
+            online: false,
+            lastSeen: new Date().toISOString()
+        });
+        
+        // Update status every 20 seconds to keep it fresh
+        setInterval(async () => {
+            if (document.visibilityState === 'visible') {
+                await update(userStatusRef, {
+                    online: true,
+                    lastSeen: new Date().toISOString()
+                });
+            }
+        }, 20000);
+        
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                update(userStatusRef, { online: false, lastSeen: new Date().toISOString() });
+            } else {
+                update(userStatusRef, { online: true, lastSeen: new Date().toISOString() });
+            }
+        });
+    }
+    
+    setupUserStatus();
+    
+    // Get participant online status with proper formatting
+    function getParticipantStatus(participantId) {
+        if (!participantId || statusListenerActive) return;
+        
+        const participantRef = ref(db, `users/${participantId}`);
+        onValue(participantRef, (snapshot) => {
+            const data = snapshot.val();
+            const onlineDot = document.getElementById('participantOnlineDot');
+            const statusText = document.getElementById('participantStatusText');
+            
+            if (!onlineDot || !statusText) return;
+            
+            if (data && data.online === true) {
+                onlineDot.className = 'w-2 h-2 rounded-full bg-emerald-500 online-dot';
+                statusText.innerHTML = '<span class="text-emerald-400 text-xs flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block"></span> Online</span>';
+            } else {
+                onlineDot.className = 'w-2 h-2 rounded-full bg-gray-500';
+                if (data && data.lastSeen) {
+                    const lastSeen = new Date(data.lastSeen);
+                    const now = new Date();
+                    const diffSeconds = Math.floor((now - lastSeen) / 1000);
+                    const diffMinutes = Math.floor(diffSeconds / 60);
+                    const diffHours = Math.floor(diffMinutes / 60);
+                    const diffDays = Math.floor(diffHours / 24);
+                    
+                    let lastSeenText = '';
+                    if (diffSeconds < 60) {
+                        lastSeenText = 'Just now';
+                    } else if (diffMinutes < 60) {
+                        lastSeenText = `${diffMinutes} min ago`;
+                    } else if (diffHours < 24) {
+                        lastSeenText = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                    } else if (diffDays < 7) {
+                        lastSeenText = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                    } else {
+                        lastSeenText = lastSeen.toLocaleDateString();
+                    }
+                    statusText.innerHTML = `<span class="text-gray-400 text-xs flex items-center gap-1"><span class="w-1.5 h-1.5 bg-gray-500 rounded-full inline-block"></span> Last seen ${lastSeenText}</span>`;
+                } else {
+                    statusText.innerHTML = '<span class="text-gray-400 text-xs flex items-center gap-1"><span class="w-1.5 h-1.5 bg-gray-500 rounded-full inline-block"></span> Offline</span>';
+                }
+            }
+        });
+        statusListenerActive = true;
+    }
+    
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    async function markMessageAsRead(messageKey, senderId) {
+        if (senderId === currentUser.id) return;
+        
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}/messages`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}/messages`;
+        }
+        
+        const messageRef = ref(db, `${chatPath}/${messageKey}`);
+        await update(messageRef, { read: true, readAt: Date.now(), readBy: currentUser.id });
+    }
+    
+    function generate6DigitCode() {
+        return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+    
+    async function deleteMessageForEveryone(messageId, messageKey, fileUrl = null) {
+        if (confirm('Delete this message for everyone?')) {
+            let chatPath;
+            if (currentChatType === 'group') {
+                chatPath = `chats/${currentChat}/messages`;
+            } else {
+                chatPath = `privateChats/${currentChatCode}/messages`;
+            }
+            
+            const messageRef = ref(db, `${chatPath}/${messageKey}`);
+            await update(messageRef, {
+                deleted: true,
+                deletedBy: currentUser.id,
+                deletedAt: Date.now(),
+                text: "This message was deleted",
+                fileUrl: null,
+                fileName: null
+            });
+            
+            if (fileUrl) {
+                try {
+                    const fileRef = storageRef(storage, fileUrl);
+                    await deleteObject(fileRef);
+                } catch(e) { console.log('File delete error:', e); }
+            }
+        }
+    }
+    
+    function addMessageToUI(message, isSent, messageId, messageKey, fileUrl = null, fileName = null) {
+        const messagesDiv = document.getElementById('messagesContainer');
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${isSent ? 'justify-end' : 'justify-start'} message-anim message-wrapper`;
+        wrapper.setAttribute('data-message-key', messageKey);
+        wrapper.setAttribute('data-message-id', messageId);
+        
+        let content = '';
+        const isDeleted = message.deleted === true;
+        
+        if (isDeleted) {
+            content = `<div class="msg-deleted px-3 py-2 text-white/50 text-sm italic">
+                        <i class="fas fa-trash-alt mr-1"></i> This message was deleted
+                        <div class="text-[8px] text-white/30 mt-1">${formatTime(message.timestamp || Date.now())}</div>
+                       </div>`;
+        } else {
+            if (fileUrl && fileName) {
+                if (fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                    content = `<img src="${fileUrl}" class="max-w-[200px] max-h-40 rounded-lg mb-2 cursor-pointer" onclick="window.open('${fileUrl}')">`;
+                } else {
+                    content = `<a href="${fileUrl}" download class="text-blue-300 underline text-sm flex items-center gap-1"><i class="fas fa-download"></i> ${escapeHtml(fileName)}</a><br>`;
+                }
+            }
+            content += `<div class="break-words text-sm">${escapeHtml(message.text || '')}</div>`;
+            
+            let readStatusHtml = '';
+            if (isSent) {
+                if (message.read === true) {
+                    readStatusHtml = '<i class="fas fa-check-double text-[10px] text-blue-400 seen-tick"></i>';
+                } else {
+                    readStatusHtml = '<i class="fas fa-check-double text-[10px] text-white/40 delivered-tick"></i>';
+                }
+            }
+            
+            content = `<div class="${isSent ? 'msg-sent' : 'msg-received'} px-3 py-2 max-w-[70%] text-white">
+                        ${content}
+                        <div class="flex items-center justify-end gap-1 mt-1">
+                            <span class="text-[9px] text-white/40">${formatTime(message.timestamp || Date.now())}</span>
+                            ${readStatusHtml}
+                        </div>
+                       </div>`;
+        }
+        
+        wrapper.innerHTML = content;
+        
+        if (isSent && !isDeleted && message.timestamp > Date.now() - 86400000) {
+            const deleteBtn = document.createElement('div');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash-alt text-white text-xs"></i>';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteMessageForEveryone(messageId, messageKey, fileUrl);
+            };
+            wrapper.appendChild(deleteBtn);
+        }
+        
+        messagesDiv.appendChild(wrapper);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        
+        if (!isSent && !message.read) {
+            setTimeout(() => {
+                markMessageAsRead(messageKey, message.senderId);
+            }, 1000);
+        }
+        
+        return wrapper;
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+    
+    function loadMessages(chatId, chatType, code = null) {
+        const messagesDiv = document.getElementById('messagesContainer');
+        messagesDiv.innerHTML = '<div class="text-center text-white/40 text-sm py-10">Loading messages...</div>';
+        
+        if (currentMessagesRef) { }
+        
+        let chatPath = chatType === 'group' ? `chats/${chatId}` : `privateChats/${code}`;
+        const messagesRef = ref(db, `${chatPath}/messages`);
+        currentMessagesRef = messagesRef;
+        
+        messagesDiv.innerHTML = '';
+        messageRefs.clear();
+        
+        onChildAdded(messagesRef, (snapshot) => {
+            const message = snapshot.val();
+            const messageKey = snapshot.key;
+            const isSent = message.senderId === currentUser.id;
+            messageRefs.set(messageKey, message);
+            addMessageToUI(message, isSent, message.id, messageKey, message.fileUrl, message.fileName);
+        });
+    }
+    
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text) return;
+        
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}/messages`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}/messages`;
+        }
+        
+        const messagesRef = ref(db, chatPath);
+        const newMessage = {
+            id: Date.now().toString(),
+            text: text,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            timestamp: Date.now(),
+            read: false,
+            deleted: false
+        };
+        
+        await push(messagesRef, newMessage);
+        input.value = '';
+        
+        const typingRef = ref(db, `${chatPath.replace('/messages', '')}/typing/${currentUser.id}`);
+        await remove(typingRef);
+    }
+    
+    async function sendFile(file) {
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}`;
+        }
+        
+        const fileStorageRef = storageRef(storage, `${chatPath}/files/${Date.now()}_${file.name}`);
+        const uploadResult = await uploadBytes(fileStorageRef, file);
+        const fileUrl = await getDownloadURL(uploadResult.ref);
+        
+        const messagesRef = ref(db, `${chatPath}/messages`);
+        const newMessage = {
+            id: Date.now().toString(),
+            text: `📎 ${file.name}`,
+            fileUrl: fileUrl,
+            fileName: file.name,
+            senderId: currentUser.id,
+            senderName: currentUser.name,
+            timestamp: Date.now(),
+            read: false,
+            deleted: false
+        };
+        
+        await push(messagesRef, newMessage);
+    }
+    
+    function handleTyping() {
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}`;
+        }
+        
+        const typingRef = ref(db, `${chatPath}/typing/${currentUser.id}`);
+        set(typingRef, { name: currentUser.name, timestamp: Date.now() });
+        
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(async () => {
+            await remove(typingRef);
+        }, 1500);
+    }
+    
+    function listenForTyping() {
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}`;
+        }
+        
+        const typingRef = ref(db, `${chatPath}/typing`);
+        onValue(typingRef, (snapshot) => {
+            const typingData = snapshot.val();
+            const typingIndicator = document.getElementById('globalTypingIndicator');
+            if (typingData && Object.keys(typingData).length > 0) {
+                const typers = Object.keys(typingData).filter(id => id !== currentUser.id);
+                if (typers.length > 0) {
+                    typingIndicator.classList.remove('hidden');
+                } else {
+                    typingIndicator.classList.add('hidden');
+                }
+            } else {
+                typingIndicator.classList.add('hidden');
+            }
+        });
+    }
+    
+    async function clearChat() {
+        if (confirm('Are you sure you want to clear all messages? (This cannot be undone)')) {
+            let chatPath;
+            if (currentChatType === 'group') {
+                chatPath = `chats/${currentChat}/messages`;
+            } else {
+                chatPath = `privateChats/${currentChatCode}/messages`;
+            }
+            const messagesRef = ref(db, chatPath);
+            await remove(messagesRef);
+            document.getElementById('messagesContainer').innerHTML = '';
+        }
+    }
+    
+    async function createPrivateChat() {
+        const code = generate6DigitCode();
+        const chatRef = ref(db, `privateChats/${code}`);
+        const snapshot = await get(chatRef);
+        
+        if (!snapshot.exists()) {
+            await set(chatRef, {
+                code: code,
+                name: `Private Chat ${code}`,
+                createdBy: currentUser.id,
+                createdAt: Date.now(),
+                participants: [currentUser.id]
+            });
+        }
+        
+        document.getElementById('generatedCode').textContent = code;
+        document.getElementById('createPrivateModal').classList.remove('hidden');
+        document.getElementById('createPrivateModal').style.display = 'flex';
+        
+        window.tempCreatedCode = code;
+    }
+    
+    async function joinPrivateChat(code) {
+        const chatRef = ref(db, `privateChats/${code}`);
+        const snapshot = await get(chatRef);
+        
+        if (snapshot.exists()) {
+            const chatData = snapshot.val();
+            if (!chatData.participants.includes(currentUser.id)) {
+                chatData.participants.push(currentUser.id);
+                await set(chatRef, chatData);
+            }
+            
+            const userPrivateRef = ref(db, `users/${currentUser.id}/privateChats/${code}`);
+            await set(userPrivateRef, { code: code, name: chatData.name, joinedAt: Date.now() });
+            
+            currentChatType = 'private';
+            currentChatCode = code;
+            currentChat = null;
+            
+            const otherParticipant = chatData.participants.find(p => p !== currentUser.id);
+            currentParticipantId = otherParticipant || null;
+            
+            document.getElementById('currentChatTitle').textContent = `🔒 Private Chat ${code}`;
+            document.getElementById('showCodeBtn').classList.remove('hidden');
+            
+            if (currentParticipantId) {
+                statusListenerActive = false;
+                getParticipantStatus(currentParticipantId);
+            } else {
+                document.getElementById('participantStatusText').innerHTML = '<span class="text-gray-400 text-xs flex items-center gap-1"><span class="w-1.5 h-1.5 bg-gray-500 rounded-full inline-block"></span> Waiting for others...</span>';
+            }
+            
+            loadMessages(null, 'private', code);
+            listenForTyping();
+            
+            document.getElementById('joinPrivateModal').style.display = 'none';
+            document.getElementById('joinPrivateModal').classList.add('hidden');
+            
+            loadPrivateChats();
+        } else {
+            alert('Invalid code! Please check and try again.');
+        }
+    }
+    
+    function loadPrivateChats() {
+        const privateChatsRef = ref(db, `users/${currentUser.id}/privateChats`);
+        onValue(privateChatsRef, (snapshot) => {
+            const chats = snapshot.val();
+            const container = document.getElementById('privateChatsList');
+            container.innerHTML = '';
+            
+            if (chats) {
+                Object.keys(chats).forEach(code => {
+                    const div = document.createElement('div');
+                    div.className = 'sidebar-item p-3 rounded-xl flex items-center gap-3';
+                    div.setAttribute('data-code', code);
+                    div.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center">
+                            <i class="fas fa-lock text-purple-400 text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="text-white text-sm font-medium">🔒 ${code}</h5>
+                            <p class="text-white/40 text-xs">Private chat</p>
+                        </div>
+                    `;
+                    div.addEventListener('click', async () => {
+                        currentChatType = 'private';
+                        currentChatCode = code;
+                        currentChat = null;
+                        
+                        const chatRef = ref(db, `privateChats/${code}`);
+                        const chatSnapshot = await get(chatRef);
+                        if (chatSnapshot.exists()) {
+                            const chatData = chatSnapshot.val();
+                            const otherParticipant = chatData.participants.find(p => p !== currentUser.id);
+                            currentParticipantId = otherParticipant || null;
+                            if (currentParticipantId) {
+                                statusListenerActive = false;
+                                getParticipantStatus(currentParticipantId);
+                            }
+                        }
+                        
+                        document.getElementById('currentChatTitle').textContent = `🔒 Private Chat ${code}`;
+                        document.getElementById('showCodeBtn').classList.remove('hidden');
+                        loadMessages(null, 'private', code);
+                        listenForTyping();
+                    });
+                    container.appendChild(div);
+                });
+            }
+        });
+    }
+    
+    async function initGeneralChat() {
+        const chatRef = ref(db, `chats/general`);
+        const snapshot = await get(chatRef);
+        if (!snapshot.exists()) {
+            await set(chatRef, { name: 'General Group', type: 'public', createdAt: Date.now() });
+        }
+        document.getElementById('participantStatusText').innerHTML = '<span class="text-white/40 text-xs flex items-center gap-1"><i class="fas fa-users text-[10px]"></i> Group Chat</span>';
+        document.getElementById('participantOnlineDot').className = 'w-2 h-2 rounded-full bg-gray-500';
+    }
+    
+    function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        const sidebar = document.querySelector('.sidebar-main');
+        const mainContent = document.getElementById('mainContent');
+        const toggleIcon = document.getElementById('toggleIcon');
+        
+        if (sidebarCollapsed) {
+            sidebar.style.transform = 'translateX(-100%)';
+            mainContent.style.marginLeft = '0';
+            toggleIcon.classList.remove('fa-chevron-left');
+            toggleIcon.classList.add('fa-chevron-right');
+            document.querySelector('.sidebar-toggle').style.left = '0';
+        } else {
+            sidebar.style.transform = 'translateX(0)';
+            mainContent.style.marginLeft = '320px';
+            toggleIcon.classList.remove('fa-chevron-right');
+            toggleIcon.classList.add('fa-chevron-left');
+            document.querySelector('.sidebar-toggle').style.left = '280px';
+        }
+    }
+    
+    // Event Listeners
+    document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+    document.getElementById('sendMsgBtn').addEventListener('click', sendMessage);
+    document.getElementById('messageInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        } else {
+            handleTyping();
+        }
+    });
+    
+    document.getElementById('attachBtn').addEventListener('click', () => {
+        document.getElementById('fileInput').click();
+    });
+    
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            sendFile(e.target.files[0]);
+        }
+        e.target.value = '';
+    });
+    
+    document.getElementById('clearChatBtn').addEventListener('click', clearChat);
+    document.getElementById('createPrivateChatBtn').addEventListener('click', createPrivateChat);
+    
+    document.getElementById('privateChatOption').addEventListener('click', () => {
+        document.getElementById('joinPrivateModal').classList.remove('hidden');
+        document.getElementById('joinPrivateModal').style.display = 'flex';
+        document.getElementById('joinCodeInput').value = '';
+    });
+    
+    document.getElementById('joinChatBtn').addEventListener('click', () => {
+        const code = document.getElementById('joinCodeInput').value.trim();
+        if (code.length === 6 && /^\d+$/.test(code)) {
+            joinPrivateChat(code);
+        } else {
+            alert('Please enter a valid 6-digit code');
+        }
+    });
+    
+    document.getElementById('joinCodeInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('joinChatBtn').click();
+        }
+    });
+    
+    document.getElementById('joinCreatedChatBtn').addEventListener('click', () => {
+        if (window.tempCreatedCode) {
+            joinPrivateChat(window.tempCreatedCode);
+            document.getElementById('createPrivateModal').style.display = 'none';
+            document.getElementById('createPrivateModal').classList.add('hidden');
+        }
+    });
+    
+    document.getElementById('copyCodeBtn').addEventListener('click', () => {
+        const code = document.getElementById('generatedCode').textContent;
+        navigator.clipboard.writeText(code);
+        alert('Code copied to clipboard!');
+    });
+    
+    document.getElementById('closeCreateModal').addEventListener('click', () => {
+        document.getElementById('createPrivateModal').style.display = 'none';
+        document.getElementById('createPrivateModal').classList.add('hidden');
+    });
+    
+    document.getElementById('closeJoinModal').addEventListener('click', () => {
+        document.getElementById('joinPrivateModal').style.display = 'none';
+        document.getElementById('joinPrivateModal').classList.add('hidden');
+    });
+    
+    document.getElementById('showCodeBtn').addEventListener('click', () => {
+        if (currentChatCode) {
+            alert(`Private Chat Code: ${currentChatCode}\nShare this code with friends to join this chat!`);
+        }
+    });
+    
+    document.getElementById('editProfileBtn').addEventListener('click', () => {
+        document.getElementById('editName').value = currentUser.name;
+        document.getElementById('profileModal').classList.remove('hidden');
+        document.getElementById('profileModal').style.display = 'flex';
+    });
+    
+    document.getElementById('saveProfile').addEventListener('click', async () => {
+        const newName = document.getElementById('editName').value.trim();
+        if (newName) {
+            currentUser.name = newName;
+            localStorage.setItem('userName', newName);
+            document.getElementById('userName').textContent = newName;
+            await set(ref(db, `users/${currentUser.id}`), { name: newName, online: true, lastSeen: new Date().toISOString() });
+        }
+        document.getElementById('profileModal').style.display = 'none';
+        document.getElementById('profileModal').classList.add('hidden');
+    });
+    
+    document.getElementById('closeProfile').addEventListener('click', () => {
+        document.getElementById('profileModal').style.display = 'none';
+        document.getElementById('profileModal').classList.add('hidden');
+    });
+    
+    const emojiBtn = document.getElementById('emojiBtn');
+    const emojiPicker = document.getElementById('emojiPicker');
+    emojiBtn.addEventListener('click', () => {
+        emojiPicker.classList.toggle('hidden');
+    });
+    
+    document.querySelectorAll('.emoji').forEach(emoji => {
+        emoji.addEventListener('click', () => {
+            const input = document.getElementById('messageInput');
+            input.value += emoji.textContent;
+            emojiPicker.classList.add('hidden');
+            input.focus();
+        });
+    });
+    
+    document.querySelector('[data-chat="general"]').addEventListener('click', () => {
+        currentChatType = 'group';
+        currentChat = 'general';
+        currentChatCode = null;
+        currentParticipantId = null;
+        document.getElementById('currentChatTitle').textContent = '🌐 General Group';
+        document.getElementById('showCodeBtn').classList.add('hidden');
+        document.getElementById('participantStatusText').innerHTML = '<span class="text-white/40 text-xs flex items-center gap-1"><i class="fas fa-users text-[10px]"></i> Group Chat</span>';
+        document.getElementById('participantOnlineDot').className = 'w-2 h-2 rounded-full bg-gray-500';
+        loadMessages('general', 'group');
+        listenForTyping();
+    });
+    
+    initGeneralChat();
+    loadPrivateChats();
+    
+    console.log('✅ SocialChat with Fixed Online/Offline Status initialized!');
+</script>
+</body>
+</html>

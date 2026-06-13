@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>SecureChat Pro | Premium Chat App</title>
+    <title>SocialChat | Private Code-Based Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -11,10 +11,9 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         
-        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAOvbLmJk51keGvAgsx9BofXzXpz7XS9ms",
             authDomain: "daily-cash-and-earning-app.firebaseapp.com",
@@ -29,7 +28,6 @@
         const db = getDatabase(app);
         const storage = getStorage(app);
         
-        // Make available globally
         window.db = db;
         window.storage = storage;
         window.ref = ref;
@@ -39,26 +37,18 @@
         window.update = update;
         window.remove = remove;
         window.set = set;
+        window.get = get;
         window.storageRef = storageRef;
         window.uploadBytes = uploadBytes;
         window.getDownloadURL = getDownloadURL;
         
-        console.log("✅ Firebase Connected Successfully!");
+        console.log("✅ Firebase Connected!");
     </script>
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
-            background: #0f0f1a;
-        }
-        
-        /* Glassmorphism Effects */
         .glass {
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(10px);
@@ -71,7 +61,6 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         
-        /* Message Bubbles */
         .msg-sent {
             background: linear-gradient(135deg, #3b82f6, #8b5cf6);
             border-radius: 22px;
@@ -84,57 +73,30 @@
             border-bottom-left-radius: 6px;
         }
         
-        /* Scrollbar */
-        .chat-scroll::-webkit-scrollbar {
-            width: 5px;
-        }
+        .chat-scroll::-webkit-scrollbar { width: 5px; }
+        .chat-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #8b5cf6; border-radius: 10px; }
         
-        .chat-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-        }
-        
-        .chat-scroll::-webkit-scrollbar-thumb {
-            background: #8b5cf6;
-            border-radius: 10px;
-        }
-        
-        /* Animations */
         @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(15px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        
-        .message-anim {
-            animation: fadeIn 0.25s ease-out;
-        }
+        .message-anim { animation: fadeIn 0.25s ease-out; }
         
         @keyframes pulse {
             0%, 100% { opacity: 0.4; transform: scale(0.9); }
             50% { opacity: 1; transform: scale(1.2); }
         }
+        .online-dot { animation: pulse 1.5s infinite; }
         
-        .online-dot {
-            animation: pulse 1.5s infinite;
-        }
-        
-        /* Typing Indicator */
         .typing-dot {
-            width: 6px;
-            height: 6px;
+            width: 6px; height: 6px;
             background: #a78bfa;
             border-radius: 50%;
             display: inline-block;
             margin: 0 2px;
             animation: typingWave 1.2s infinite;
         }
-        
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
         
@@ -143,40 +105,30 @@
             30% { transform: translateY(-5px); opacity: 1; }
         }
         
-        /* Button Hover Effects */
-        .btn-hover {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        .btn-hover:active { transform: scale(0.95); }
+        input:focus, textarea:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
         
-        .btn-hover:active {
-            transform: scale(0.95);
-        }
-        
-        /* Input Focus */
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: #8b5cf6;
-            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
-        }
-        
-        /* Sidebar Active */
         .sidebar-item {
             transition: all 0.2s;
             cursor: pointer;
         }
+        .sidebar-item:hover { background: rgba(139, 92, 246, 0.1); }
+        .sidebar-item.active { background: rgba(139, 92, 246, 0.2); border-left: 3px solid #8b5cf6; }
         
-        .sidebar-item:hover {
-            background: rgba(139, 92, 246, 0.1);
+        .code-box {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2));
+            border: 2px dashed #8b5cf6;
         }
         
-        .sidebar-item.active {
-            background: rgba(139, 92, 246, 0.2);
-            border-left: 3px solid #8b5cf6;
-        }
-        
-        /* Modal */
         .modal {
             transition: all 0.3s ease;
+        }
+        
+        input.code-input {
+            font-size: 2rem;
+            letter-spacing: 10px;
+            text-align: center;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -190,7 +142,7 @@
             <div class="flex items-center gap-3">
                 <div class="relative">
                     <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center text-white font-bold text-lg">
-                        U
+                        <i class="fas fa-user"></i>
                     </div>
                     <div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900 online-dot"></div>
                 </div>
@@ -204,38 +156,44 @@
             </div>
         </div>
         
-        <!-- Search -->
-        <div class="p-4">
-            <div class="relative">
-                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-white/30 text-sm"></i>
-                <input type="text" id="searchChats" placeholder="Search chats..." 
-                       class="w-full bg-white/5 rounded-xl pl-9 pr-3 py-2 text-white/80 text-sm border border-white/10 focus:border-purple-500">
-            </div>
-        </div>
-        
         <!-- Chat List -->
         <div class="flex-1 overflow-y-auto">
-            <div class="px-3 py-2">
-                <h4 class="text-white/40 text-xs uppercase tracking-wider mb-2 px-2">Recent Chats</h4>
-                <div id="chatList" class="space-y-1">
-                    <!-- Dynamic chat list will appear here -->
-                    <div class="sidebar-item p-3 rounded-xl flex items-center gap-3" data-chat="general">
-                        <div class="w-10 h-10 rounded-full bg-blue-600/30 flex items-center justify-center">
-                            <i class="fas fa-users text-blue-400"></i>
-                        </div>
-                        <div class="flex-1">
-                            <h5 class="text-white text-sm font-medium">General Group</h5>
-                            <p class="text-white/40 text-xs">Tap to chat</p>
-                        </div>
+            <div class="px-3 py-4">
+                <!-- General Group Option -->
+                <div class="sidebar-item p-3 rounded-xl flex items-center gap-3 mb-2" data-chat="general" data-type="group">
+                    <div class="w-10 h-10 rounded-full bg-blue-600/30 flex items-center justify-center">
+                        <i class="fas fa-users text-blue-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="text-white text-sm font-medium">🏠 General Group</h5>
+                        <p class="text-white/40 text-xs">Public group chat</p>
+                    </div>
+                </div>
+                
+                <!-- Private Chat via Code Option -->
+                <div class="sidebar-item p-3 rounded-xl flex items-center gap-3 mb-2" id="privateChatOption">
+                    <div class="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center">
+                        <i class="fas fa-lock text-purple-400"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h5 class="text-white text-sm font-medium">🔒 Private Chat</h5>
+                        <p class="text-white/40 text-xs">Join with 6-digit code</p>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-3 border-t border-white/10">
+                    <h4 class="text-white/40 text-xs uppercase tracking-wider mb-2 px-2">My Private Chats</h4>
+                    <div id="privateChatsList" class="space-y-1">
+                        <!-- Dynamic private chats will appear here -->
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Logout / Settings -->
+        <!-- Create New Private Chat Button -->
         <div class="p-4 border-t border-white/10">
-            <button id="createGroupBtn" class="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl py-2 text-sm flex items-center justify-center gap-2 transition-all">
-                <i class="fas fa-plus"></i> New Group
+            <button id="createPrivateChatBtn" class="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl py-2 text-sm flex items-center justify-center gap-2 transition-all">
+                <i class="fas fa-plus-circle"></i> Create New Private Chat
             </button>
         </div>
     </div>
@@ -265,8 +223,8 @@
                 <button id="clearChatBtn" class="text-white/40 hover:text-red-400 transition-all">
                     <i class="fas fa-trash-alt"></i>
                 </button>
-                <button id="infoBtn" class="text-white/40 hover:text-white/80 transition-all">
-                    <i class="fas fa-info-circle"></i>
+                <button id="showCodeBtn" class="text-purple-400 hover:text-purple-300 transition-all hidden">
+                    <i class="fas fa-key"></i>
                 </button>
             </div>
         </div>
@@ -274,7 +232,7 @@
         <!-- Messages Container -->
         <div id="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-3 chat-scroll"></div>
         
-        <!-- Typing Indicator (Global) -->
+        <!-- Typing Indicator -->
         <div id="globalTypingIndicator" class="px-6 pb-2 hidden">
             <div class="flex items-center gap-2">
                 <span class="text-white/40 text-xs">Someone is typing</span>
@@ -299,10 +257,10 @@
                     <i class="fas fa-paper-plane text-white"></i>
                 </button>
             </div>
-            <input type="file" id="fileInput" class="hidden" multiple>
+            <input type="file" id="fileInput" class="hidden">
             
-            <!-- Emoji Picker (Simple) -->
-            <div id="emojiPicker" class="hidden glass absolute bottom-20 left-20 p-3 rounded-xl w-64">
+            <!-- Emoji Picker -->
+            <div id="emojiPicker" class="hidden glass absolute bottom-24 left-80 p-3 rounded-xl w-64 z-50">
                 <div class="grid grid-cols-8 gap-2">
                     <span class="emoji text-2xl cursor-pointer hover:scale-125 transition-all">😀</span>
                     <span class="emoji text-2xl cursor-pointer hover:scale-125">😂</span>
@@ -326,6 +284,42 @@
     </div>
 </div>
 
+<!-- Create Private Chat Modal -->
+<div id="createPrivateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
+    <div class="glass rounded-2xl p-6 w-96">
+        <h3 class="text-white font-semibold mb-4">Create Private Chat</h3>
+        <p class="text-white/60 text-sm mb-3">Share this 6-digit code with your friend:</p>
+        <div class="code-box rounded-xl p-4 text-center mb-4">
+            <div class="text-4xl font-bold text-purple-400 tracking-widest" id="generatedCode">------</div>
+        </div>
+        <button id="copyCodeBtn" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded-xl text-white mb-3">
+            <i class="fas fa-copy mr-2"></i> Copy Code
+        </button>
+        <button id="joinCreatedChatBtn" class="w-full bg-emerald-600/40 hover:bg-emerald-600/60 py-2 rounded-xl text-white">
+            <i class="fas fa-door-open mr-2"></i> Join This Chat
+        </button>
+        <button id="closeCreateModal" class="w-full mt-2 bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white/80">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<!-- Join Private Chat Modal -->
+<div id="joinPrivateModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
+    <div class="glass rounded-2xl p-6 w-96">
+        <h3 class="text-white font-semibold mb-4">Join Private Chat</h3>
+        <p class="text-white/60 text-sm mb-3">Enter 6-digit code:</p>
+        <input type="text" id="joinCodeInput" maxlength="6" placeholder="------" 
+               class="code-input w-full bg-white/10 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest border border-white/20 focus:border-purple-500 mb-4">
+        <button id="joinChatBtn" class="w-full bg-purple-600 hover:bg-purple-500 py-2 rounded-xl text-white mb-2">
+            <i class="fas fa-sign-in-alt mr-2"></i> Join Chat
+        </button>
+        <button id="closeJoinModal" class="w-full bg-white/10 hover:bg-white/20 py-2 rounded-xl text-white/80">
+            Cancel
+        </button>
+    </div>
+</div>
+
 <!-- Edit Profile Modal -->
 <div id="profileModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50">
     <div class="glass rounded-2xl p-6 w-96">
@@ -339,8 +333,7 @@
 </div>
 
 <script type="module">
-    // Initialize Firebase (already imported via module)
-    import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, onValue, update, remove, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
     
     const db = getDatabase();
@@ -349,10 +342,12 @@
     // App State
     let currentUser = {
         id: localStorage.getItem('userId') || 'user_' + Math.random().toString(36).substr(2, 8),
-        name: localStorage.getItem('userName') || 'Anonymous',
+        name: localStorage.getItem('userName') || 'Anonymous_' + Math.random().toString(36).substr(2, 4),
         online: true
     };
     let currentChat = 'general';
+    let currentChatType = 'group';
+    let currentChatCode = null;
     let typingTimeout = null;
     let currentMessagesRef = null;
     
@@ -360,29 +355,28 @@
     localStorage.setItem('userId', currentUser.id);
     localStorage.setItem('userName', currentUser.name);
     
-    // Display user ID
+    // Display user info
     document.getElementById('userIdDisplay').textContent = currentUser.id.slice(-6);
     document.getElementById('userName').textContent = currentUser.name;
     
     // Update user online status
     const userStatusRef = ref(db, `users/${currentUser.id}`);
-    set(userStatusRef, {
-        name: currentUser.name,
-        online: true,
-        lastSeen: new Date().toISOString()
-    });
+    set(userStatusRef, { name: currentUser.name, online: true, lastSeen: new Date().toISOString() });
     
-    // Set offline on page unload
     window.addEventListener('beforeunload', () => {
         set(userStatusRef, { online: false, lastSeen: new Date().toISOString() });
     });
     
-    // Function to add message to UI
+    // Generate 6-digit code
+    function generate6DigitCode() {
+        return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+    
+    // Add message to UI
     function addMessageToUI(message, isSent, fileUrl = null, fileName = null) {
         const messagesDiv = document.getElementById('messagesContainer');
         const msgDiv = document.createElement('div');
         msgDiv.className = `flex ${isSent ? 'justify-end' : 'justify-start'} message-anim`;
-        msgDiv.setAttribute('data-message-id', message.id || Date.now());
         
         let content = '';
         if (fileUrl && fileName) {
@@ -392,7 +386,6 @@
                 content = `<a href="${fileUrl}" download class="text-blue-300 underline text-sm flex items-center gap-1"><i class="fas fa-download"></i> ${escapeHtml(fileName)}</a><br>`;
             }
         }
-        
         content += `<div class="break-words text-sm">${escapeHtml(message.text || '')}</div>`;
         
         msgDiv.innerHTML = `
@@ -417,21 +410,18 @@
     }
     
     // Load messages for current chat
-    function loadMessages(chatId) {
+    function loadMessages(chatId, chatType, code = null) {
         const messagesDiv = document.getElementById('messagesContainer');
         messagesDiv.innerHTML = '<div class="text-center text-white/40 text-sm py-10">Loading messages...</div>';
         
-        if (currentMessagesRef) {
-            // Remove old listener
-        }
+        if (currentMessagesRef) { }
         
-        const messagesRef = ref(db, `chats/${chatId}/messages`);
+        let chatPath = chatType === 'group' ? `chats/${chatId}` : `privateChats/${code}`;
+        const messagesRef = ref(db, `${chatPath}/messages`);
         currentMessagesRef = messagesRef;
         
-        // Clear existing messages
         messagesDiv.innerHTML = '';
         
-        // Listen for new messages
         onChildAdded(messagesRef, (snapshot) => {
             const message = snapshot.val();
             const isSent = message.senderId === currentUser.id;
@@ -445,7 +435,14 @@
         const text = input.value.trim();
         if (!text) return;
         
-        const messagesRef = ref(db, `chats/${currentChat}/messages`);
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}/messages`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}/messages`;
+        }
+        
+        const messagesRef = ref(db, chatPath);
         const newMessage = {
             id: Date.now().toString(),
             text: text,
@@ -459,17 +456,24 @@
         input.value = '';
         
         // Update typing status
-        const typingRef = ref(db, `chats/${currentChat}/typing/${currentUser.id}`);
+        const typingRef = ref(db, `${chatPath.replace('/messages', '')}/typing/${currentUser.id}`);
         await remove(typingRef);
     }
     
     // Send file
     async function sendFile(file) {
-        const fileRef = storageRef(storage, `chats/${currentChat}/${Date.now()}_${file.name}`);
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}`;
+        }
+        
+        const fileRef = storageRef(storage, `${chatPath}/files/${Date.now()}_${file.name}`);
         const uploadResult = await uploadBytes(fileRef, file);
         const fileUrl = await getDownloadURL(uploadResult.ref);
         
-        const messagesRef = ref(db, `chats/${currentChat}/messages`);
+        const messagesRef = ref(db, `${chatPath}/messages`);
         const newMessage = {
             id: Date.now().toString(),
             text: `📎 ${file.name}`,
@@ -486,7 +490,14 @@
     
     // Handle typing
     function handleTyping() {
-        const typingRef = ref(db, `chats/${currentChat}/typing/${currentUser.id}`);
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}`;
+        }
+        
+        const typingRef = ref(db, `${chatPath}/typing/${currentUser.id}`);
         set(typingRef, { name: currentUser.name, timestamp: Date.now() });
         
         clearTimeout(typingTimeout);
@@ -495,9 +506,16 @@
         }, 1500);
     }
     
-    // Listen for typing indicators
+    // Listen for typing
     function listenForTyping() {
-        const typingRef = ref(db, `chats/${currentChat}/typing`);
+        let chatPath;
+        if (currentChatType === 'group') {
+            chatPath = `chats/${currentChat}`;
+        } else {
+            chatPath = `privateChats/${currentChatCode}`;
+        }
+        
+        const typingRef = ref(db, `${chatPath}/typing`);
         onValue(typingRef, (snapshot) => {
             const typingData = snapshot.val();
             const typingIndicator = document.getElementById('globalTypingIndicator');
@@ -517,24 +535,123 @@
     // Clear chat
     async function clearChat() {
         if (confirm('Are you sure you want to clear all messages?')) {
-            const messagesRef = ref(db, `chats/${currentChat}/messages`);
+            let chatPath;
+            if (currentChatType === 'group') {
+                chatPath = `chats/${currentChat}/messages`;
+            } else {
+                chatPath = `privateChats/${currentChatCode}/messages`;
+            }
+            const messagesRef = ref(db, chatPath);
             await remove(messagesRef);
             document.getElementById('messagesContainer').innerHTML = '';
         }
     }
     
-    // Initialize default chat
-    async function initChat() {
-        // Create default chat if not exists
-        const chatRef = ref(db, `chats/general`);
-        onValue(chatRef, (snapshot) => {
-            if (!snapshot.exists()) {
-                set(chatRef, { name: 'General Group', createdAt: Date.now() });
+    // Create new private chat
+    async function createPrivateChat() {
+        const code = generate6DigitCode();
+        const chatRef = ref(db, `privateChats/${code}`);
+        const snapshot = await get(chatRef);
+        
+        if (!snapshot.exists()) {
+            await set(chatRef, {
+                code: code,
+                name: `Private Chat ${code}`,
+                createdBy: currentUser.id,
+                createdAt: Date.now(),
+                participants: [currentUser.id]
+            });
+        }
+        
+        document.getElementById('generatedCode').textContent = code;
+        document.getElementById('createPrivateModal').classList.remove('hidden');
+        document.getElementById('createPrivateModal').style.display = 'flex';
+        
+        window.tempCreatedCode = code;
+    }
+    
+    // Join private chat
+    async function joinPrivateChat(code) {
+        const chatRef = ref(db, `privateChats/${code}`);
+        const snapshot = await get(chatRef);
+        
+        if (snapshot.exists()) {
+            // Add user as participant if not already
+            const chatData = snapshot.val();
+            if (!chatData.participants.includes(currentUser.id)) {
+                chatData.participants.push(currentUser.id);
+                await set(chatRef, chatData);
+            }
+            
+            // Add to user's private chats list
+            const userPrivateRef = ref(db, `users/${currentUser.id}/privateChats/${code}`);
+            await set(userPrivateRef, { code: code, name: chatData.name, joinedAt: Date.now() });
+            
+            // Load the chat
+            currentChatType = 'private';
+            currentChatCode = code;
+            currentChat = null;
+            document.getElementById('currentChatTitle').textContent = `🔒 Private Chat ${code}`;
+            document.getElementById('showCodeBtn').classList.remove('hidden');
+            loadMessages(null, 'private', code);
+            listenForTyping();
+            
+            // Close modal
+            document.getElementById('joinPrivateModal').style.display = 'none';
+            document.getElementById('joinPrivateModal').classList.add('hidden');
+            
+            // Refresh private chats list
+            loadPrivateChats();
+        } else {
+            alert('Invalid code! Please check and try again.');
+        }
+    }
+    
+    // Load private chats list for current user
+    function loadPrivateChats() {
+        const privateChatsRef = ref(db, `users/${currentUser.id}/privateChats`);
+        onValue(privateChatsRef, (snapshot) => {
+            const chats = snapshot.val();
+            const container = document.getElementById('privateChatsList');
+            container.innerHTML = '';
+            
+            if (chats) {
+                Object.keys(chats).forEach(code => {
+                    const chat = chats[code];
+                    const div = document.createElement('div');
+                    div.className = 'sidebar-item p-3 rounded-xl flex items-center gap-3';
+                    div.setAttribute('data-code', code);
+                    div.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-purple-600/30 flex items-center justify-center">
+                            <i class="fas fa-lock text-purple-400 text-sm"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h5 class="text-white text-sm font-medium">🔒 ${code}</h5>
+                            <p class="text-white/40 text-xs">Private chat</p>
+                        </div>
+                    `;
+                    div.addEventListener('click', () => {
+                        currentChatType = 'private';
+                        currentChatCode = code;
+                        currentChat = null;
+                        document.getElementById('currentChatTitle').textContent = `🔒 Private Chat ${code}`;
+                        document.getElementById('showCodeBtn').classList.remove('hidden');
+                        loadMessages(null, 'private', code);
+                        listenForTyping();
+                    });
+                    container.appendChild(div);
+                });
             }
         });
-        
-        loadMessages('general');
-        listenForTyping();
+    }
+    
+    // Initialize general chat
+    async function initGeneralChat() {
+        const chatRef = ref(db, `chats/general`);
+        const snapshot = await get(chatRef);
+        if (!snapshot.exists()) {
+            await set(chatRef, { name: 'General Group', type: 'public', createdAt: Date.now() });
+        }
     }
     
     // Event Listeners
@@ -559,6 +676,59 @@
     });
     
     document.getElementById('clearChatBtn').addEventListener('click', clearChat);
+    
+    document.getElementById('createPrivateChatBtn').addEventListener('click', createPrivateChat);
+    
+    document.getElementById('privateChatOption').addEventListener('click', () => {
+        document.getElementById('joinPrivateModal').classList.remove('hidden');
+        document.getElementById('joinPrivateModal').style.display = 'flex';
+        document.getElementById('joinCodeInput').value = '';
+    });
+    
+    document.getElementById('joinChatBtn').addEventListener('click', () => {
+        const code = document.getElementById('joinCodeInput').value.trim();
+        if (code.length === 6 && /^\d+$/.test(code)) {
+            joinPrivateChat(code);
+        } else {
+            alert('Please enter a valid 6-digit code');
+        }
+    });
+    
+    document.getElementById('joinCodeInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('joinChatBtn').click();
+        }
+    });
+    
+    document.getElementById('joinCreatedChatBtn').addEventListener('click', () => {
+        if (window.tempCreatedCode) {
+            joinPrivateChat(window.tempCreatedCode);
+            document.getElementById('createPrivateModal').style.display = 'none';
+            document.getElementById('createPrivateModal').classList.add('hidden');
+        }
+    });
+    
+    document.getElementById('copyCodeBtn').addEventListener('click', () => {
+        const code = document.getElementById('generatedCode').textContent;
+        navigator.clipboard.writeText(code);
+        alert('Code copied to clipboard!');
+    });
+    
+    document.getElementById('closeCreateModal').addEventListener('click', () => {
+        document.getElementById('createPrivateModal').style.display = 'none';
+        document.getElementById('createPrivateModal').classList.add('hidden');
+    });
+    
+    document.getElementById('closeJoinModal').addEventListener('click', () => {
+        document.getElementById('joinPrivateModal').style.display = 'none';
+        document.getElementById('joinPrivateModal').classList.add('hidden');
+    });
+    
+    document.getElementById('showCodeBtn').addEventListener('click', () => {
+        if (currentChatCode) {
+            alert(`Private Chat Code: ${currentChatCode}\nShare this code with friends to join this chat!`);
+        }
+    });
     
     // Edit Profile
     document.getElementById('editProfileBtn').addEventListener('click', () => {
@@ -600,44 +770,26 @@
         });
     });
     
-    // Create Group
-    document.getElementById('createGroupBtn').addEventListener('click', async () => {
-        const groupName = prompt('Enter group name:');
-        if (groupName) {
-            const groupId = 'group_' + Date.now();
-            await set(ref(db, `chats/${groupId}`), {
-                name: groupName,
-                type: 'group',
-                createdAt: Date.now(),
-                createdBy: currentUser.id
-            });
-            alert(`Group "${groupName}" created!`);
-            location.reload();
-        }
-    });
-    
-    // Chat list click handler
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const chatId = item.getAttribute('data-chat');
-            if (chatId) {
-                currentChat = chatId;
-                document.getElementById('currentChatTitle').textContent = item.querySelector('h5').textContent;
-                loadMessages(chatId);
-                listenForTyping();
-            }
-        });
+    // General group click
+    document.querySelector('[data-chat="general"]').addEventListener('click', () => {
+        currentChatType = 'group';
+        currentChat = 'general';
+        currentChatCode = null;
+        document.getElementById('currentChatTitle').textContent = '🏠 General Group';
+        document.getElementById('showCodeBtn').classList.add('hidden');
+        loadMessages('general', 'group');
+        listenForTyping();
     });
     
     // Initialize
-    initChat();
+    initGeneralChat();
+    loadPrivateChats();
     
-    // Update chat status
     setInterval(async () => {
         await set(userStatusRef, { name: currentUser.name, online: true, lastSeen: new Date().toISOString() });
     }, 30000);
     
-    console.log('✅ App Initialized! Firebase Connected!');
+    console.log('✅ SocialChat Initialized!');
 </script>
 </body>
 </html>
